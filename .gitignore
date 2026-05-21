@@ -1,0 +1,9 @@
+node_modules/
+coverage/
+
+*.tsbuildinfo
+
+# IDE и OS
+.DS_Store
+.vscode/
+.idea/

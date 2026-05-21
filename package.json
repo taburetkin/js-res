@@ -1,0 +1,31 @@
+{
+  "name": "js-res",
+  "version": "1.0.0",
+  "description": "javascript result pattern implementation",
+  "main": "index.js",
+  "type": "module",
+  "types": "./index.d.ts",
+  "sideEffects": false,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "test-dev": "node --test --watch --test-only",
+    "coverage": "npx c8 --reporter=html node --test test/*.test.js",
+    "test:coverage:node": "node --test --experimental-test-coverage test/*.test.js",
+    "test:coverage:report": "node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout test/*.test.js"
+  },
+  "keywords": [
+    "result",
+    "try-catch",
+    "result-pattern",
+    "monad",
+    "functional-programming",
+    "tree-shaking",
+    "TypeScript",
+    ""
+  ],
+  "author": "dimtabu <dima.taburetkin@gmail.com>",
+  "license": "ISC",
+  "devDependencies": {
+    "c8": "^11.0.0"
+  }
+}
