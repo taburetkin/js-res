@@ -1,6 +1,7 @@
 node_modules/
 coverage/
-
+export-to-me.js
+project-export.txt
 *.tsbuildinfo
 
 # IDE и OS
