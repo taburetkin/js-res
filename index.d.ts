@@ -1,57 +1,117 @@
 export interface ResultOptions<R extends Result = Result> {
-  /** Функция для модификации экземпляра Result после его создания */
+  /** Function to modify the Result instance after creation */
   init?: (res: R) => void;
-  /** Контекст (this) для выполнения fn в safeInvoke/sync/async */
+  /** Context (this) for executing fn in safeInvoke/sync/async */
   invokeContext?: any;
-  /** Аргументы для вызова fn. Принимает что угодно, обрабатывается через parseArgs */
-  invokeArgs?: any;
-  /** Любые дополнительные поля для кастомной логики */
+  /** Arguments for calling fn. Accepts anything, processed via parseArgs */
+  invokeArgs?: readonly any[];
+  /** Any additional fields for custom logic */
   [key: string]: any;
 }
 
-/** Базовый контейнер данных */
+/** Base data container */
 export class Result<T = any, E = any> {
-  constructor(value?: T, error?: E);
+  constructor(value?: T, error?: E, forcedError?: boolean);
   readonly value: T | undefined;
   readonly error: E | undefined;
   readonly ok: boolean;
   readonly notOk: boolean;
+  readonly forcedError: boolean;
+
+  /**
+   * Object-style pattern matching.
+   * @example
+   * result.match({
+   *   ok: (value) => `Success: ${value}`,
+   *   err: (error) => `Error: ${error}`
+   * });
+   */
+  match<U>(handlers: {
+    ok: (value: T, result: Result<T, E>) => U;
+    err: (error: E, result: Result<T, E>) => U;
+  }): U;
+
+  /**
+   * Function-style pattern matching.
+   * @example
+   * result.fold(
+   *   (value) => value.toUpperCase(),
+   *   (error) => error.message
+   * );
+   */
+  fold<U>(
+    onOk: (value: T, result: Result<T, E>) => U,
+    onErr: (error: E, result: Result<T, E>) => U
+  ): U;
 }
 
 /** 
- * ПУБЛИЧНОЕ ФУНКЦИОНАЛЬНОЕ API (Из коробки)
+ * PUBLIC FUNCTIONAL API (Out of the box)
  */
-export function OK<T>(value: T, options?: ResultOptions<Result<T, any>>): Result<T, any>;
-export function ERR<E>(error: E, options?: ResultOptions<Result<any, E>>): Result<any, E>;
-export function toResult<T>(arg: T | Result<T, any>, options?: ResultOptions, isFromCatchBlock?: boolean): Result<T, any>;
+export function OK<T = never>(value: T, options?: ResultOptions<Result<T, never>>): Result<T, never>;
+export function ERR<E = never>(error: E, options?: ResultOptions<Result<never, E>>): Result<never, E>;
+export function RES<T, E>(arg: T | Result<T, E>, options?: ResultOptions, isFromCatchBlock?: boolean): Result<T, E>;
 
-export function safeInvoke<T>(fn: (...args: any[]) => T, options?: ResultOptions): [T?, any?];
-export function syncCall<T>(fn: (...args: any[]) => T, options?: ResultOptions): Result<T, any>;
-export function asyncCall<T>(arg: Promise<T> | ((...args: any[]) => Promise<T>), options?: ResultOptions): Promise<Result<T, any>>;
+export function safeInvoke<T>(
+  fn: T | ((...args: any[]) => T),
+  options?: ResultOptions
+): [T?, any?];
+
+export function syncCall<T>(
+  fn: T | ((...args: any[]) => T),
+  options?: ResultOptions
+): Result<T, any>;
+
+// asyncCall — three overloads for different argument types
+export function asyncCall<T>(arg: Promise<T>, options?: ResultOptions): Promise<Result<T, any>>;
+export function asyncCall<T>(arg: () => T | Promise<T>, options?: ResultOptions): Promise<Result<T, any>>;
+export function asyncCall<T>(arg: T, options?: ResultOptions): Promise<Result<T, any>>;
 
 /** 
- * API ДЛЯ ПОЛИМОРФИЗМА (Наследование)
- * R — тип класса Result, который будет возвращаться методами.
+ * API FOR POLYMORPHISM (Inheritance)
+ * R — the Result class type that methods will return
  */
 export class Results<R extends Result = Result> {
-  /** Ссылка на конструктор класса Result */
+  /** Reference to the Result class constructor */
   Class: new (...args: any[]) => R;
 
-  /** Создает экземпляр R (успех) */
+  /** Creates an instance of R (success) */
   OK<T>(value: T, options?: ResultOptions<R>): R;
-  /** Создает экземпляр R (ошибка) */
+  /** Creates an instance of R (error) */
   ERR<E>(error: E, options?: ResultOptions<R>): R;
-  /** Приводит значение к экземпляру R */
-  toResult(arg: any, options?: ResultOptions<R>, isFromCatchBlock?: boolean): R;
+  /** Converts a value to an instance of R */
+  RES(arg: any, options?: ResultOptions<R>, isFromCatchBlock?: boolean): R;
 
-  /** Безопасный вызов (Go-style) */
+  /** Safe call (Go-style) */
   safeInvoke(fn: Function, options?: ResultOptions<R>): [any?, any?];
-  /** Синхронный вызов с возвратом R */
+  
+  /** Synchronous call returning R */
+  syncCall(fn: Function, options?: ResultOptions<R>): R;
+  /** Alias for syncCall */
   sync(fn: Function, options?: ResultOptions<R>): R;
-  /** Асинхронный вызов с возвратом Promise<R> */
+  
+  /** Asynchronous call returning Promise<R> */
+  asyncCall(arg: any, options?: ResultOptions<R>): Promise<R>;
+  /** Alias for asyncCall */
   async(arg: any, options?: ResultOptions<R>): Promise<R>;
 
-  /** Системные методы, доступные для переопределения */
+  /** System methods available for overriding */
   normalizeOptions(obj: any): ResultOptions<R>;
   parseArgs(args: any): any[];
 }
+
+/** 
+ * CHAIN API (Optional module)
+ * Import from 'js-res/chain'
+ */
+export class ChainResult<T = any, E = any> extends Result<T, E> {
+  /** Synchronous chain method */
+  syncChain<U>(fn: (value: T) => U | Result<U, any>, options?: ResultOptions): ChainResult<U, any>;
+  /** Asynchronous chain method */
+  asyncChain<U>(fn: (value: T) => Promise<U | Result<U, any>>, options?: ResultOptions): Promise<ChainResult<U, any>>;
+}
+
+/** Start a synchronous chain */
+export function syncChain<T>(arg: T | (() => T), options?: ResultOptions): ChainResult<T, any>;
+/** Start an asynchronous chain */
+export function asyncChain<T>(arg: T | (() => Promise<T>), options?: ResultOptions): Promise<ChainResult<T, any>>;

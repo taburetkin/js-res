@@ -1,8 +1,19 @@
 
 const emptyObject = {};
 
-export function normalizeOptions(obj) {
-	return obj && typeof obj === 'object' ? obj : emptyObject;
+
+function isObj(arg) {
+	return arg && typeof arg === 'object';
+}
+
+export function normalizeOptions(obj, extendWith) {
+
+	let res =  isObj(obj) ? obj : emptyObject;
+	if (!isObj(extendWith)) return res;
+
+	res = { ...res, ...extendWith }
+	
+	return res;
 }
 
 export function parseArgs(args) {

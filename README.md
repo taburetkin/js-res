@@ -22,14 +22,62 @@ This is great for complex transformations, but overkill for simple checks.
 3. **Functional style when you need it** — extend via `Results` and add your own `map`/`chain`
 4. **No forced patterns** — use what makes sense for your code
 
-## Features
+## What's in the box?
 
-- 🪶 **Tiny** — core is ~14 lines, **zero dependencies**
-- 📦 **Tree-shakeable** — use only what you need
-- 🎯 **Simple 80% API** — `OK`, `ERR`, `syncCall`, `asyncCall`
-- 🧙 **Polymorphic 20% API** — extend with `class MyLib extends Results`
-- 🔧 **Hackable** — `init` hook for quick customizations
-- 📝 **TypeScript** — full type definitions
+| Export | Description |
+|--------|-------------|
+| `Result` | Base container class with `value`, `error`, `ok`, `notOk`, `forcedError`, `match`, `fold` |
+| `OK(value, options?)` | Create a success Result |
+| `ERR(error, options?)` | Create an error Result (forces `ok = false`) |
+| `RES(arg, options?)` | Convert any value to Result (auto-detects success/error) |
+| `syncCall(fn, options?)` | Execute sync function, catch throws → returns Result |
+| `asyncCall(fnOrPromise, options?)` | Execute async function, catch rejections/thrown → returns Promise<Result> |
+| `safeInvoke(fn, options?)` | Go‑style: returns `[value, error]` tuple |
+| `Results` | Base class for polymorphism — extend to create your own Result factory |
+| `ChainResult`, `syncChain`, `asyncChain` | Optional module for functional chains |
+
+**Tree‑shakeable:** Import only what you need.
+
+## Why UPPERCASE?
+
+You might wonder why the core factories — `OK`, `ERR`, `RES` — are in uppercase.
+
+**Short answer:** Clarity without conflict.
+
+**Longer explanation:**
+
+In real‑world JavaScript codebases, `ok`, `err`, and `res` are extremely common variable names:
+- `ok` – boolean flag (`let ok = await validate()`)
+- `err` – error object (`if (err) ...`)
+- `res` – response object (`const res = await fetch(...)`)
+
+Using lowercase names for the factories would cause constant name collisions and confusion, forcing developers to rename imports every single time:
+
+```typescript
+// Not ideal
+import { ok as isOk, err as asError, res as toResult } from 'js-res';
+```
+
+Uppercase makes the factories stand out clearly:
+
+```typescript
+import { OK, ERR, RES } from 'js-res';
+
+const result = OK('data');        // clearly a factory
+const err = ERR('fail');          // no conflict with 'err' variable
+const data = RES(something);      // no confusion with 'res' response
+```
+
+**If you prefer camelCase**, you can easily re‑export with your own names:
+
+```javascript
+// my-js-res.js
+import { OK as ok, ERR as err, RES as res } from 'js-res';
+export { ok, err, res };
+export * from 'js-res';
+```
+
+Uppercase is a deliberate design choice — not to be different, but to be **practical**.
 
 ## Installation
 
@@ -40,17 +88,23 @@ npm install js-res
 ## Quick Start
 
 ```typescript
-import { OK, ERR, syncCall, asyncCall } from 'js-res';
+import { OK, ERR, RES, syncCall, asyncCall } from 'js-res';
 
 // Create success
 const success = OK('data');
 console.log(success.ok);     // true
 console.log(success.value);  // 'data'
+// TypeScript knows: success.error is never (cannot exist)
 
 // Create error
 const failure = ERR('something went wrong');
-console.log(failure.notOk);  // true (for those who don't like !res.ok)
+console.log(failure.notOk);  // true
 console.log(failure.error);  // 'something went wrong'
+// TypeScript knows: failure.value is never (cannot exist)
+
+// Convert any value to Result (auto-detects success/error)
+const autoOk = RES(42);        // Result<number, never>
+const asValue = RES('hello');  // Result<string, unknown>
 
 // Replace try/catch
 const result = syncCall(() => {
@@ -61,6 +115,18 @@ if (result.ok) {
 } else {
     console.error(result.error);
 }
+
+// Using match
+const message = result.match({
+    ok: (value) => `Success: \${value}`,
+    err: (error) => `Error: \${error}`
+});
+
+// Using fold
+const output = result.fold(
+    (value) => value.toUpperCase(),
+    (error) => error.message
+);
 
 // Binding context and arguments
 const parsed = syncCall(JSON.parse, {
@@ -115,6 +181,66 @@ if (error) {
 }
 ```
 
+### What happens with `new Result(undefined, undefined)`?
+
+`Result` constructor accepts three parameters: `value`, `error`, and `forcedError` (internal).
+
+Here's how `ok` is determined:
+
+| `forcedError` | `error == null` | `ok` | Use case |
+|---------------|-----------------|-------|-----------|
+| `false` | `true` | `true` | Normal success |
+| `false` | `false` | `false` | Normal error |
+| `true` | any | `false` | Explicit error (from `ERR` or catch block) |
+
+**Examples:**
+
+```typescript
+// Normal success
+const res1 = new Result('data', null);
+console.log(res1.ok);      // true
+
+// Normal error
+const res2 = new Result(undefined, 'fail');
+console.log(res2.ok);      // false
+
+// ERR always creates error, even with null
+const res3 = ERR(null);
+console.log(res3.ok);      // false (thanks to forcedError)
+console.log(res3.error);   // null
+
+// OK always creates success
+const res4 = OK(null);
+console.log(res4.ok);      // true
+console.log(res4.value);   // null
+```
+
+**Why this matters:**
+
+When catching errors from `try/catch` or rejected promises, the error value might be `null` or `undefined`. Using `ERR` ensures these are treated as errors, not successes. `RES` automatically detects based on the value.
+
+### TypeScript Benefits
+
+With `js-res`, TypeScript knows exactly what state your Result is in:
+
+```typescript
+const success = OK('hello');
+// Type: Result<string, never>
+// success.error is never — cannot exist!
+
+const failure = ERR(404);
+// Type: Result<never, number>
+// failure.value is never — cannot exist!
+
+// When you check .ok, TypeScript narrows the type
+if (success.ok) {
+    console.log(success.value); // string
+    // success.error is never here
+} else {
+    console.log(success.error); // never — actually impossible
+}
+```
+
 ## Advanced: Polymorphism
 
 When you need custom behavior, extend `Results`:
@@ -125,8 +251,8 @@ import { Results, Result } from 'js-res';
 class MyResult extends Result {
     timestamp: number;
 
-    constructor(value?: any, error?: any) {
-        super(value, error);
+    constructor(value?: any, error?: any, forcedError?: boolean) {
+        super(value, error, forcedError);
         this.timestamp = Date.now();
     }
 }
@@ -159,20 +285,24 @@ console.log(result.customField); // 123
 
 | Function | Description |
 |----------|-------------|
-| `OK(value, options?)` | Create success Result |
-| `ERR(error, options?)` | Create error Result |
-| `syncCall(fn, options?)` | Execute sync function, return Result |
-| `asyncCall(fnOrPromise, options?)` | Execute async function, return Promise<Result> |
-| `safeInvoke(fn, options?)` | Go-style: returns `[value, error]` tuple |
+| `OK<T>(value, options?)` | Create success Result with type T |
+| `ERR<E>(error, options?)` | Create error Result with type E |
+| `RES<T, E>(arg, options?)` | Convert any value to Result (auto-detects success/error) |
+| `syncCall<T>(fn, options?)` | Execute sync function, return Result<T, any> |
+| `asyncCall<T>(fnOrPromise, options?)` | Execute async function, return Promise<Result<T, any>> |
+| `safeInvoke<T>(fn, options?)` | Go-style: returns `[value, error]` tuple |
 
-### Result instance properties
+### Result instance properties and methods
 
-| Property | Type | Description |
-|----------|------|-------------|
+| Property/Method | Type | Description |
+|-----------------|------|-------------|
 | `value` | `T \| undefined` | Success value (undefined if error) |
 | `error` | `E \| undefined` | Error value (undefined if success) |
 | `ok` | `boolean` | True if success |
 | `notOk` | `boolean` | True if error (alternative to `!ok`) |
+| `forcedError` | `boolean` | True if explicitly created as error |
+| `match(handlers)` | `U` | Object-style pattern matching |
+| `fold(onOk, onErr)` | `U` | Function-style pattern matching |
 
 ### Options
 
@@ -188,27 +318,62 @@ console.log(result.customField); // 123
 |--------|-------------|
 | `OK(value, options?)` | Create success (bound to instance) |
 | `ERR(error, options?)` | Create error (bound to instance) |
-| `sync(fn, options?)` | Sync call with custom class |
-| `async(fnOrPromise, options?)` | Async call with custom class |
+| `RES(arg, options?)` | Convert to instance of R |
 | `safeInvoke(fn, options?)` | Go-style with custom class |
+| `syncCall(fn, options?)` | Sync call with custom class |
+| `asyncCall(fnOrPromise, options?)` | Async call with custom class |
+| `sync(fn, options?)` | Short alias for `syncCall` |
+| `async(fnOrPromise, options?)` | Short alias for `asyncCall` |
 | `Class` | Constructor to use (default: `Result`) |
+
+### Chain API (optional module)
+
+Import from `js-res/chain` for functional chains:
+
+| Export | Description |
+|--------|-------------|
+| `ChainResult` | Extended Result with `syncChain` and `asyncChain` methods |
+| `syncChain(arg, options?)` | Start a synchronous chain |
+| `asyncChain(arg, options?)` | Start an asynchronous chain |
 
 ## TypeScript
 
 ```typescript
-import { Result, OK } from 'js-res';
+import { Result, OK, ERR, RES } from 'js-res';
 
-const result: Result<string, Error> = OK('hello');
+// TypeScript knows exact state
+const success: Result<string, never> = OK('hello');
+const failure: Result<never, Error> = ERR(new Error('fail'));
 
-if (result.ok) {
-    console.log(result.value.toUpperCase());
-} else {
-    console.error(result.error.message);
+// RES converts values
+const fromValue: Result<number, never> = RES(42);
+const fromString: Result<string, unknown> = RES('hello');
+
+// match with type narrowing
+const message = success.match({
+    ok: (value) => value.toUpperCase(),
+    err: (error) => 'never happens'
+});
+
+// fold with type narrowing
+const length = success.fold(
+    (value) => value.length,
+    (error) => 0
+);
+
+if (success.ok) {
+    console.log(success.value.toUpperCase()); // safe
+    // success.error is never — TypeScript knows it can't exist
+}
+
+if (failure.notOk) {
+    console.error(failure.error.message); // safe
+    // failure.value is never — TypeScript knows it can't exist
 }
 
 // For those who prefer positive checks
-if (result.notOk) {
-    console.error('Something went wrong');
+if (failure.forcedError) {
+    console.log('This was explicitly created as an error');
 }
 ```
 
@@ -220,7 +385,7 @@ if (result.notOk) {
 import { OK, ERR } from 'js-res';
 ```
 
-Bundlers (Webpack, Vite, Rollup, esbuild) will exclude `syncCall`, `asyncCall`, and `Results`.
+Bundlers (Webpack, Vite, Rollup, esbuild) will exclude `syncCall`, `asyncCall`, `Results`, and `ChainResult`.
 
 ## License
 

@@ -1,7 +1,7 @@
 import { Result } from './Result.js';
 import { normalizeOptions, parseArgs } from './utils.js';
-import { _ok, _err, _toResult } from './instance-api.js';
-import { _syncCall, _asyncCall, _safeInvoke } from './invoke-api.js';
+import { OK, ERR, RES } from './instance-api.js';
+import { syncCall, asyncCall, safeInvoke } from './invoke-api.js';
 
 export class Results {
 
@@ -11,15 +11,20 @@ export class Results {
 
 	parseArgs = parseArgs
 
-	OK = _ok
+	OK = OK
 
-	ERR = _err
+	ERR = ERR
 
-	toResult = _toResult
+	RES = RES
 	
-	safeInvoke = _safeInvoke
+	safeInvoke = safeInvoke
 
-	sync = _syncCall
+	syncCall = syncCall
+	sync = syncCall
 
-	async = _asyncCall
+	asyncCall = asyncCall
+	async = asyncCall
+
+
+
 }

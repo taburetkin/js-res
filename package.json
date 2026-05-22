@@ -1,31 +1,62 @@
 {
   "name": "js-res",
   "version": "1.0.0",
-  "description": "javascript result pattern implementation",
+  "description": "Minimal, tree-shakeable Result pattern for JavaScript and TypeScript. Zero dependencies.",
   "main": "index.js",
   "type": "module",
   "types": "./index.d.ts",
   "sideEffects": false,
-  "scripts": {
-    "test": "node --test test/*.test.js",
-    "test-dev": "node --test --watch --test-only",
-    "coverage": "npx c8 --reporter=html node --test test/*.test.js",
-    "test:coverage:node": "node --test --experimental-test-coverage test/*.test.js",
-    "test:coverage:report": "node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout test/*.test.js"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/taburetkin/js-res.git"
   },
+  "bugs": {
+    "url": "https://github.com/taburetkin/js-res/issues"
+  },
+  "homepage": "https://github.com/taburetkin/js-res#readme",
+  "files": [
+    "*.js",
+    "*.d.ts",
+    "README.md",
+    "!test",
+    "!coverage",
+    "!*.test.js"
+  ],
+  "scripts": {
+    "test": "node --test --test-reporter=spec test/*.test.js",
+    "posttest" : "npm run test:types",
+    "test-dev": "node --test --watch --test-only",
+    "test:types": "tsd",
+    "test:types:dev": "tsd --watch",
+    "coverage": "npx c8 --reporter=html node --test test/*.test.js",
+    "prepublishOnly": "npm test",
+    "push": "git add . && git commit && git push origin master"
+  },
+  "tsd": {
+    "directory": "test/types"
+  },  
   "keywords": [
     "result",
-    "try-catch",
     "result-pattern",
+    "neverthrow",
+    "error-handling",
+    "try-catch",
     "monad",
+    "either",
+    "functional",
     "functional-programming",
+    "typescript",
+    "javascript",
     "tree-shaking",
-    "TypeScript",
-    ""
+    "zero-dependencies",
+    "go-style",
+    "safe-call",
+    "async-error-handling"
   ],
   "author": "dimtabu <dima.taburetkin@gmail.com>",
   "license": "ISC",
   "devDependencies": {
-    "c8": "^11.0.0"
+    "c8": "^11.0.0",
+    "tsd": "^0.33.0"
   }
 }
