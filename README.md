@@ -22,6 +22,19 @@ This is great for complex transformations, but overkill for simple checks.
 3. **Functional style when you need it** — extend via `Results` and add your own `map`/`chain`
 4. **No forced patterns** — use what makes sense for your code
 
+## How does `js-res` compare to other libraries?
+
+| Feature / Library | `js-res` | `neverthrow` | `fp-ts` / `effect-ts` |
+| :--- | :--- | :--- | :--- |
+| **Sync/Async Chaining** | ✅ **Explicit**. `syncChain` for sync, `asyncChain` for async. No hidden switches | 🟡 Implicit. `Result` vs `ResultAsync` are separate types | 🟡 Implicit. Uses `TaskEither` / `Effect` |
+| **Async Visibility** | ✅ **Clear**. User always knows where async happens | ❌ Can be invisible. `asyncMap` hides the switch | ❌ Can be invisible. Effect system abstracts it |
+| **Type Safety on Mixing** | ✅ **Strict**. TypeScript errors when mixing sync/async incorrectly | 🟡 Soft. Requires manual type conversion | 🟡 Soft. Requires lifting into Effect |
+| **Learning Curve** | 🟢 **Low**. Explicit methods, no magic | 🟡 Medium | 🔴 High |
+| **Bundle Size & Tree-shaking** | ✅ **Zero deps, fully tree-shakeable** | ❌ Contains more overhead | ❌ Very large |
+| **Customization / Polymorphism** | ✅ **First-class support**. Extend `Results` class | ❌ Not a core feature | ❌ Extending classes is anti-pattern |
+
+**Summary on chaining:** Functional libraries often pretend you can mix sync and async seamlessly, but under the hood they use separate types or monads. `js-res` is **honest** — you choose `syncChain` or `asyncChain` upfront, and TypeScript helps you stay on track.
+
 ## What's in the box?
 
 | Export | Description |
@@ -34,9 +47,10 @@ This is great for complex transformations, but overkill for simple checks.
 | `asyncCall(fnOrPromise, options?)` | Execute async function, catch rejections/thrown → returns Promise<Result> |
 | `safeInvoke(fn, options?)` | Go‑style: returns `[value, error]` tuple |
 | `Results` | Base class for polymorphism — extend to create your own Result factory |
-| `ChainResult`, `syncChain`, `asyncChain` | Optional module for functional chains |
+| `syncChain(arg, options?)` | Start a synchronous chain |
+| `asyncChain(arg, options?)` | Start an asynchronous chain |
 
-**Tree‑shakeable:** Import only what you need.
+**Tree‑shakeable:** Import only what you need. *No separate modules — all exports from the main package.*
 
 ## Why UPPERCASE?
 
@@ -135,6 +149,43 @@ const parsed = syncCall(JSON.parse, {
 });
 console.log(parsed.value); // { key: 'value' }
 ```
+
+## Functional Chains (Explicit Sync/Async)
+
+Unlike functional libraries that hide async switches, `js-res` keeps it **explicit**:
+
+```typescript
+import { syncChain, asyncChain, OK } from 'js-res';
+
+// ✅ Synchronous chain — all steps must be sync
+const syncResult = syncChain(5)
+    .syncChain(x => x * 2)           // sync
+    .syncChain(x => OK(x + 1))       // sync, returns Result
+    .match({
+        ok: (v) => `Success: \${v}`,
+        err: (e) => `Error: \${e}`
+    });
+
+// ✅ Asynchronous chain — explicit from start
+const asyncResult = await asyncChain(() => fetch('/api/user'))
+    .asyncChain(res => res.json())    // async
+    .asyncChain(user => user.id)      // can be sync, still works
+    .fold(
+        err => console.error(err),
+        id => console.log(`User ID: \${id}`)
+    );
+
+// ❌ This will NOT work — TypeScript prevents mixing
+const wrong = syncChain(5)
+    .syncChain(x => Promise.resolve(x * 2));  // Type error!
+```
+
+**Why explicit is better:**
+
+- You always know if your chain is sync or async
+- No hidden performance surprises
+- TypeScript catches mistakes before runtime
+- Code is self-documenting
 
 ### Async calls — correct usage
 
@@ -241,6 +292,44 @@ if (success.ok) {
 }
 ```
 
+## TypeScript Error Type Defaults
+
+`js-res` makes sensible assumptions about error types:
+
+| Function | Default Error Type | Why |
+|----------|-------------------|-----|
+| `syncCall(value)` | `never` | Values never throw |
+| `syncCall(fn)` | `Error` | Functions throw `Error` by default |
+| `asyncCall(value)` | `never` | Values never throw |
+| `asyncCall(fn)` | `Error` | Async functions reject with `Error` by default |
+| `asyncCall(Promise)` | `unknown` | Promise rejection reason can be anything |
+| `RES(arg)` | `unknown` | Conversion result type depends on input |
+
+**Examples:**
+
+```typescript
+import { syncCall, asyncCall, Result } from 'js-res';
+
+// Value — never throws
+const fromValue: Result<number, never> = syncCall(42);
+
+// Sync function — Error by default
+const fromSync: Result<string, Error> = syncCall(() => JSON.parse(str));
+
+// Explicit error type
+const withExplicit: Result<Data, SyntaxError> = syncCall<Data, SyntaxError>(() => JSON.parse(str));
+
+// Async function — Error by default
+const fromAsync: Promise<Result<Response, Error>> = asyncCall(() => fetch('/api'));
+
+// Promise — unknown (rejection reason can be anything)
+const fromPromise: Promise<Result<string, unknown>> = asyncCall(Promise.resolve('data'));
+```
+
+**Why `Error` by default?**
+
+In 99% of JavaScript/TypeScript code, thrown errors are `Error` or its subclasses. Using `Error` as default gives you type safety without boilerplate. If you throw something else, specify the type explicitly.
+
 ## Advanced: Polymorphism
 
 When you need custom behavior, extend `Results`:
@@ -287,9 +376,12 @@ console.log(result.customField); // 123
 |----------|-------------|
 | `OK<T>(value, options?)` | Create success Result with type T |
 | `ERR<E>(error, options?)` | Create error Result with type E |
-| `RES<T, E>(arg, options?)` | Convert any value to Result (auto-detects success/error) |
-| `syncCall<T>(fn, options?)` | Execute sync function, return Result<T, any> |
-| `asyncCall<T>(fnOrPromise, options?)` | Execute async function, return Promise<Result<T, any>> |
+| `RES<T, E = unknown>(arg, options?)` | Convert any value to Result (auto-detects success/error) |
+| `syncCall<T>(value, options?)` | Return Result<T, never> from value |
+| `syncCall<T, E = Error>(fn, options?)` | Execute sync function, return Result<T, E> |
+| `asyncCall<T>(value, options?)` | Return Promise<Result<T, never>> from value |
+| `asyncCall<T, E = Error>(fn, options?)` | Execute async function, return Promise<Result<T, E>> |
+| `asyncCall<T>(promise, options?)` | Wrap Promise, return Promise<Result<T, unknown>> |
 | `safeInvoke<T>(fn, options?)` | Go-style: returns `[value, error]` tuple |
 
 ### Result instance properties and methods
@@ -326,20 +418,22 @@ console.log(result.customField); // 123
 | `async(fnOrPromise, options?)` | Short alias for `asyncCall` |
 | `Class` | Constructor to use (default: `Result`) |
 
-### Chain API (optional module)
+## Chain API
 
-Import from `js-res/chain` for functional chains:
+Use `syncChain` and `asyncChain` for functional chains — they are exported from the main module.
 
-| Export | Description |
-|--------|-------------|
-| `ChainResult` | Extended Result with `syncChain` and `asyncChain` methods |
-| `syncChain(arg, options?)` | Start a synchronous chain |
-| `asyncChain(arg, options?)` | Start an asynchronous chain |
+| Function | Description |
+|----------|-------------|
+| `syncChain(value, options?)` | Start a synchronous chain from value (error = never) |
+| `syncChain<E = Error>(fn, options?)` | Start a synchronous chain from function |
+| `asyncChain(value, options?)` | Start an asynchronous chain from value |
+| `asyncChain<E = Error>(fn, options?)` | Start an asynchronous chain from function |
+| `asyncChain(promise, options?)` | Start an asynchronous chain from Promise |
 
 ## TypeScript
 
 ```typescript
-import { Result, OK, ERR, RES } from 'js-res';
+import { Result, OK, ERR, RES, syncCall, asyncCall } from 'js-res';
 
 // TypeScript knows exact state
 const success: Result<string, never> = OK('hello');
@@ -385,7 +479,7 @@ if (failure.forcedError) {
 import { OK, ERR } from 'js-res';
 ```
 
-Bundlers (Webpack, Vite, Rollup, esbuild) will exclude `syncCall`, `asyncCall`, `Results`, and `ChainResult`.
+Bundlers (Webpack, Vite, Rollup, esbuild) will exclude `syncCall`, `asyncCall`, `Results`, `syncChain`, and `asyncChain`.
 
 ## License
 

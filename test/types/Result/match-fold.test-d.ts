@@ -1,8 +1,10 @@
-import { expectType, expectError } from 'tsd';
-import { OK, ERR, Result } from '../../index.js';
+import { expectType } from 'tsd';
+import { OK, ERR, Result } from '../../../index.js';
 
-// match with object handlers
 const okResult = OK('hello');
+const errResult = ERR(500);
+
+// match with ok
 const matchResult = okResult.match({
     ok: (value, result) => {
         expectType<string>(value);
@@ -17,8 +19,7 @@ const matchResult = okResult.match({
 });
 expectType<number>(matchResult);
 
-// match with error result
-const errResult = ERR(500);
+// match with err
 const matchErrResult = errResult.match({
     ok: (value, result) => {
         expectType<never>(value);
@@ -33,7 +34,7 @@ const matchErrResult = errResult.match({
 });
 expectType<string>(matchErrResult);
 
-// fold with function handlers
+// fold with ok
 const foldResult = okResult.fold(
     (value, result) => {
         expectType<string>(value);
@@ -48,7 +49,7 @@ const foldResult = okResult.fold(
 );
 expectType<string>(foldResult);
 
-// fold with error result
+// fold with err
 const foldErrResult = errResult.fold(
     (value, result) => {
         expectType<never>(value);

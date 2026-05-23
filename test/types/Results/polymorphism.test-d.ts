@@ -1,5 +1,5 @@
 import { expectType } from 'tsd';
-import { Result, Results } from '../../index.js';
+import { Result, Results } from '../../../index.js';
 
 class TimestampResult extends Result {
     timestamp: number = Date.now();

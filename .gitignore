@@ -3,6 +3,7 @@ coverage/
 glue.js
 project-export.txt
 *.tsbuildinfo
+glue
 
 # IDE и OS
 .DS_Store

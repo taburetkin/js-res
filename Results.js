@@ -23,6 +23,7 @@ export class Results {
 	sync = syncCall
 
 	asyncCall = asyncCall
+
 	async = asyncCall
 
 

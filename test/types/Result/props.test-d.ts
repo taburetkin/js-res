@@ -1,5 +1,5 @@
 import { expectType } from 'tsd';
-import { OK, ERR, Result } from '../../index.js';
+import { OK, ERR, Result } from '../../../index.js';
 
 // OK creates Result<T, never>
 const ok = OK('hello');
@@ -7,11 +7,13 @@ expectType<Result<string, never>>(ok);
 expectType<boolean>(ok.ok);
 expectType<boolean>(ok.notOk);
 expectType<string | undefined>(ok.value);
+expectType<boolean>(ok.forcedError);
 
 // ERR creates Result<never, E>
 const err = ERR(500);
 expectType<Result<never, number>>(err);
 expectType<number | undefined>(err.error);
+expectType<boolean>(err.forcedError);
 
 // OK with explicit type
 const okNumber = OK<number>(42);
