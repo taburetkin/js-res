@@ -4,7 +4,7 @@ glue.js
 project-export.txt
 *.tsbuildinfo
 glue
-
+.deprecated
 # IDE и OS
 .DS_Store
 .vscode/

@@ -23,9 +23,10 @@
     "!*.test.js"
   ],
   "scripts": {
-    "test": "node --test --test-reporter=spec test/*.test.js",
+    "test": "node --test --test-reporter=spec test/**/*.test.js",
+    "test:file": "node --test --test-reporter=spec --inspect",
     "posttest": "npm run test:types",
-    "test-dev": "node --test --watch --test-only",
+    "test:dev": "node --test --watch --test-only",
     "test:types": "tsd",
     "test:types:dev": "tsd --watch",
     "coverage": "npx c8 --reporter=html node --test test/*.test.js",

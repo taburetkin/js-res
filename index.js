@@ -1,5 +1,3 @@
-export { OK, ERR, RES } from './instance-api.js';
-export { safeInvoke, syncCall, asyncCall } from './invoke-api.js';
-export { Result } from './Result.js';
-export { Results } from './Results.js';
-export { ChainResult, syncChain, asyncChain } from './chain-api.js';
+export { Result, OK, RES, ERR, safeInvoke, syncCall, asyncCall } from './simple/index.js';
+export { Results } from './polymorph/index.js';
+export { ChainResult, asyncChain } from './chains/index.js';

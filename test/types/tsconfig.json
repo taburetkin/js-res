@@ -1,9 +1,0 @@
-{
-  "compilerOptions": {
-    "strict": true,
-    "noEmit": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true
-  },
-  "include": ["**/*.test-d.ts"]
-}
